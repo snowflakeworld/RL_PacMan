@@ -9,7 +9,7 @@ import math
 ALPHA = 0.3  # Learning Rate: How fast it learns from new experiences
 GAMMA = 0.95  # Discount Factor: How much it values future rewards
 EPSILON = 1.0  # Starting Exploration: Chance of taking a random move
-EPSILON_DECAY = 0.9995  # How fast to stop being random (0.999 = very slow)
+EPSILON_DECAY = 0.9999  # How fast to stop being random (0.999 = very slow)
 MIN_EPSILON = 0.001  # Minimum randomness to keep the agent from getting stuck
 GHOST_EPSILON = 0.3  # Maximum randomness to take from random movement for ghost
 
@@ -25,7 +25,7 @@ REWARD_DIE = -500
 REWARD_WIN = 1000
 REWARD_STEP = -1  # Penalty for each move (encourages speed)
 
-TRAIN_EPISODES = 10000
+TRAIN_EPISODES = 100000
 TEST_EPISODES = 10
 
 # Colors
