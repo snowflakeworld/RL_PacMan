@@ -1,11 +1,12 @@
 import pygame
 import random
 import numpy as np
+import math
 
 # ==========================================
 # 1. GLOBAL LEARNING PARAMETERS
 # ==========================================
-ALPHA = 0.2  # Learning Rate: How fast it learns from new experiences
+ALPHA = 0.3  # Learning Rate: How fast it learns from new experiences
 GAMMA = 0.95  # Discount Factor: How much it values future rewards
 EPSILON = 1.0  # Starting Exploration: Chance of taking a random move
 EPSILON_DECAY = 0.9995  # How fast to stop being random (0.999 = very slow)
@@ -67,12 +68,112 @@ MEDIUM_CLASSIC_MAZE = [
 PAC_MAN_INIT_POS = [4, 9]
 GHOST_INIT_POS = [7, 1]
 
-MOVE_ACTION = [(0, 1), (0, -1), (1, 0), (-1, 0)]
+MOVE_ACTION = [(1, 0), (0, 1), (-1, 0), (0, -1)]
 
 MAZE_WIDTH = len(MEDIUM_CLASSIC_MAZE[0])
 MAZE_HEIGHT = len(MEDIUM_CLASSIC_MAZE)
 SCREEN_WIDTH = MAZE_WIDTH * TILE_SIZE
 SCREEN_HEIGHT = (MAZE_HEIGHT * TILE_SIZE) + 60
+
+
+def draw_ghost(x, y, color):
+    """
+    Draws a Pac-Man style ghost at a specific (x, y) position.
+    The ghost is roughly 20 pixels wide.
+    """
+    radius = 8
+    # Draw the main body (circle on top, rectangle on bottom)
+    pygame.draw.circle(screen, color, (x, y - radius), radius)
+    pygame.draw.rect(screen, color, (x - radius, y - radius, radius * 2, radius))
+
+    # Draw the "legs" (simple jagged bottom using polygons)
+    leg_height = 5
+    num_legs = 4
+    for i in range(num_legs):
+        # Calculate points for each leg segment
+        left_x = x - radius + (i * (2 * radius / num_legs))
+        right_x = x - radius + ((i + 1) * (2 * radius / num_legs))
+        top_y = y + leg_height
+        bottom_y = y
+        # Alternate top and bottom points for a jagged look
+        if i % 2 == 0:
+            points = [
+                (left_x, bottom_y),
+                (right_x, bottom_y),
+                (right_x, top_y),
+                (left_x, top_y),
+            ]
+        else:
+            points = [
+                (left_x, top_y),
+                (right_x, top_y),
+                (right_x, bottom_y),
+                (left_x, bottom_y),
+            ]
+        pygame.draw.polygon(screen, color, points)
+
+    # Draw the eyes (simple white circles with black pupils)
+    eye_radius = 3
+    pupil_radius = 1
+    # Left eye
+    pygame.draw.circle(screen, WHITE, (x - radius // 2, y - radius // 2), eye_radius)
+    pygame.draw.circle(screen, BLACK, (x - radius // 2, y - radius // 2), pupil_radius)
+    # Right eye
+    pygame.draw.circle(screen, WHITE, (x + radius // 2, y - radius // 2), eye_radius)
+    pygame.draw.circle(screen, BLACK, (x + radius // 2, y - radius // 2), pupil_radius)
+
+
+class PacMan:
+    def __init__(self, x, y, radius, color, direction):
+        self.x = x
+        self.y = y
+        self.radius = radius
+        self.color = color
+        self.mouth_angle = 45  # Angle for the mouth opening (half of total angle)
+        self.direction = direction  # 0: right, 1: up, 2: left, 3: down
+
+    def draw(self, surface):
+        # The mouth animation can be controlled by changing self.mouth_angle over time
+
+        # 1. Draw the main body (a circle)
+        pygame.draw.circle(surface, self.color, (self.x, self.y), self.radius)
+
+        # 2. Determine the mouth angles based on direction
+        # The angles for the "cutout" polygon
+        if self.direction == 0:  # Right
+            start_angle = -self.mouth_angle
+            end_angle = self.mouth_angle
+        elif self.direction == 1:  # Up
+            start_angle = 90 - self.mouth_angle
+            end_angle = 90 + self.mouth_angle
+        elif self.direction == 2:  # Left
+            start_angle = 180 - self.mouth_angle
+            end_angle = 180 + self.mouth_angle
+        elif self.direction == 3:  # Down
+            start_angle = 270 - self.mouth_angle
+            end_angle = 270 + self.mouth_angle
+
+        # 3. Create the "mouth" as a polygon that matches the background color (e.g., BLACK)
+        # The polygon will be a triangle with points at the center, and two points on the edge of the circle.
+
+        center = (self.x, self.y)
+        # Convert degrees to radians for math functions
+        start_rad = math.radians(start_angle)
+        end_rad = math.radians(end_angle)
+
+        # Calculate the two points on the edge of the circle that define the mouth
+        point1 = (
+            self.x + (self.radius + 3) * math.cos(start_rad),
+            self.y + (self.radius + 3) * math.sin(start_rad),
+        )
+        point2 = (
+            self.x + (self.radius + 3) * math.cos(end_rad),
+            self.y + (self.radius + 3) * math.sin(end_rad),
+        )
+
+        # Draw the triangle (mouth) in the background color to create the open effect
+        BACKGROUND_COLOR = (0, 0, 0)  # Assuming a black background
+        pygame.draw.polygon(surface, BACKGROUND_COLOR, [center, point1, point2])
 
 
 class GameEnv:
@@ -246,21 +347,21 @@ for ep in range(TEST_EPISODES):
                         screen, WHITE, (x + TILE_SIZE // 2, y + TILE_SIZE // 2), 6
                     )
 
-        pygame.draw.circle(
-            screen,
+        # Draw pac man
+        pacman = PacMan(
+            env.pacman[0] * TILE_SIZE + 12,
+            env.pacman[1] * TILE_SIZE + 12,
+            10,
             YELLOW,
-            (env.pacman[0] * TILE_SIZE + 11, env.pacman[1] * TILE_SIZE + 11),
-            9,
+            action,
         )
-        pygame.draw.rect(
-            screen,
+        pacman.draw(screen)
+
+        # Draw ghost
+        draw_ghost(
+            env.ghost[0] * TILE_SIZE + 12,
+            env.ghost[1] * TILE_SIZE + 15,
             RED,
-            (
-                env.ghost[0] * TILE_SIZE + 4,
-                env.ghost[1] * TILE_SIZE + 4,
-                TILE_SIZE - 8,
-                TILE_SIZE - 8,
-            ),
         )
 
         # UI Info
