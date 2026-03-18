@@ -1,27 +1,31 @@
 import pygame
 import random
 import numpy as np
-import sys
 
 # ==========================================
-# 1. GLOBAL LEARNING PARAMETERS (The "Brain")
+# 1. GLOBAL LEARNING PARAMETERS
 # ==========================================
-ALPHA = 0.1  # Learning Rate: How fast it learns from new experiences
-GAMMA = 0.9  # Discount Factor: How much it values future rewards
-EPSILON = 0.5  # Starting Exploration: Chance of taking a random move
-EPSILON_DECAY = 0.999  # How fast to stop being random (0.999 = very slow)
-MIN_EPSILON = 0.01  # Minimum randomness to keep the agent from getting stuck
+ALPHA = 0.2  # Learning Rate: How fast it learns from new experiences
+GAMMA = 0.95  # Discount Factor: How much it values future rewards
+EPSILON = 1.0  # Starting Exploration: Chance of taking a random move
+EPSILON_DECAY = 0.9995  # How fast to stop being random (0.999 = very slow)
+MIN_EPSILON = 0.001  # Minimum randomness to keep the agent from getting stuck
+GHOST_EPSILON = 0.3  # Maximum randomness to take from random movement for ghost
 
 # ==========================================
-# 2. GLOBAL GAME PARAMETERS (The "World")
+# 2. GLOBAL GAME PARAMETERS
 # ==========================================
 TILE_SIZE = 24
-FPS = 10  # Increase this to 100+ to watch the agent learn at high speed
+TRAIN_FPS = 1500  # Increase this to 100+ to watch the agent learn at high speed
+TEST_FPS = 7  # Increase this to 100+ to watch the agent learn at high speed
 REWARD_DOT = 10
 REWARD_POWER = 50
 REWARD_DIE = -500
 REWARD_WIN = 1000
 REWARD_STEP = -1  # Penalty for each move (encourages speed)
+
+TRAIN_EPISODES = 10000
+TEST_EPISODES = 10
 
 # Colors
 BLACK, WALL_BLUE, YELLOW, RED, WHITE = (
@@ -33,19 +37,37 @@ BLACK, WALL_BLUE, YELLOW, RED, WHITE = (
 )
 
 # 1: Wall, 0: Dot, 2: Power Pellet, 3: Empty Path
+# MEDIUM_CLASSIC_MAZE = [
+#     [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+#     [1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1],
+#     [1, 2, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 2, 1],
+#     [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+#     [1, 0, 1, 1, 1, 0, 1, 1, 1, 3, 3, 1, 1, 1, 0, 1, 1, 1, 0, 1],
+#     [1, 0, 0, 0, 1, 0, 0, 0, 3, 3, 3, 3, 0, 0, 0, 1, 0, 0, 0, 1],
+#     [1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1],
+#     [1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+#     [1, 0, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1],
+#     [1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1],
+#     [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+# ]
+# PAC_MAN_INIT_POS = (7, 9)
+# GHOST_INIT_POS = (7, 1)
 MEDIUM_CLASSIC_MAZE = [
-    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-    [1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1],
-    [1, 2, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 2, 1],
-    [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-    [1, 0, 1, 1, 1, 0, 1, 1, 1, 3, 3, 1, 1, 1, 0, 1, 1, 1, 0, 1],
-    [1, 0, 0, 0, 1, 0, 0, 0, 3, 3, 3, 3, 0, 0, 0, 1, 0, 0, 0, 1],
-    [1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1],
-    [1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-    [1, 0, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1],
-    [1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1],
-    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+    [1, 0, 0, 0, 1, 0, 0, 0, 2, 1],
+    [1, 0, 1, 0, 1, 0, 1, 1, 0, 1],
+    [1, 0, 1, 0, 0, 0, 1, 0, 0, 1],
+    [1, 0, 0, 0, 1, 0, 0, 0, 1, 1],
+    [1, 0, 1, 0, 1, 1, 0, 0, 0, 1],
+    [1, 0, 1, 0, 0, 0, 0, 1, 0, 1],
+    [1, 0, 1, 1, 1, 0, 1, 1, 0, 1],
+    [1, 2, 0, 0, 0, 0, 0, 0, 0, 1],
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
 ]
+PAC_MAN_INIT_POS = [4, 9]
+GHOST_INIT_POS = [7, 1]
+
+MOVE_ACTION = [(0, 1), (0, -1), (1, 0), (-1, 0)]
 
 MAZE_WIDTH = len(MEDIUM_CLASSIC_MAZE[0])
 MAZE_HEIGHT = len(MEDIUM_CLASSIC_MAZE)
@@ -59,14 +81,23 @@ class GameEnv:
 
     def reset(self):
         self.maze = [row[:] for row in MEDIUM_CLASSIC_MAZE]
-        self.pacman = [10, 7]
-        self.ghost = [10, 5]
+        self.pacman = [PAC_MAN_INIT_POS[0], PAC_MAN_INIT_POS[1]]
+        self.ghost = [GHOST_INIT_POS[0], GHOST_INIT_POS[1]]
         self.score = 0
         return self.get_state()
 
     def get_state(self):
-        # We track relative distance to the ghost
-        return (self.ghost[0] - self.pacman[0], self.ghost[1] - self.pacman[1])
+        # We track pac_man, ghost's position and remaining dots and powers
+        remaining_dots = sum(row.count(0) for row in self.maze)
+        remaining_powers = sum(row.count(2) for row in self.maze)
+        return (
+            self.pacman[0],
+            self.pacman[1],
+            self.ghost[0],
+            self.ghost[1],
+            remaining_dots,
+            remaining_powers,
+        )
 
     def is_walkable(self, x, y):
         if 0 <= x < MAZE_WIDTH and 0 <= y < MAZE_HEIGHT:
@@ -76,20 +107,28 @@ class GameEnv:
     def move_ghost(self):
         best_move = self.ghost
         min_dist = float("inf")
-        for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
+        for dx, dy in MOVE_ACTION:
             nx, ny = self.ghost[0] + dx, self.ghost[1] + dy
             if self.is_walkable(nx, ny):
-                dist = abs(nx - self.pacman[0]) + abs(ny - self.pacman[1])
-                if dist < min_dist:
-                    min_dist = dist
+                if random.random() < GHOST_EPSILON:
                     best_move = [nx, ny]
+                    break
+                else:
+                    dist = abs(nx - self.pacman[0]) + abs(ny - self.pacman[1])
+                    if dist < min_dist:
+                        min_dist = dist
+                        best_move = [nx, ny]
         self.ghost = best_move
 
     def step(self, action):
-        dx, dy = [(0, -1), (0, 1), (-1, 0), (1, 0)][action]
+        dx, dy = MOVE_ACTION[action]
         if self.is_walkable(self.pacman[0] + dx, self.pacman[1] + dy):
             self.pacman[0] += dx
             self.pacman[1] += dy
+
+        if self.pacman == self.ghost:
+            reward = REWARD_DIE
+            return self.get_state(), reward, True
 
         reward = REWARD_STEP
         tile = self.maze[self.pacman[1]][self.pacman[0]]
@@ -115,11 +154,6 @@ class GameEnv:
 
 
 # --- Main Logic ---
-pygame.init()
-screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-pygame.display.set_caption("Snow Pacman - Q-Learning")
-font = pygame.font.SysFont("Arial Black", 30)
-env = GameEnv()
 q_table = {}
 current_epsilon = EPSILON
 
@@ -130,17 +164,18 @@ def get_q(s):
     return q_table[s]
 
 
-running = True
-episode = 1
+env = GameEnv()
+pygame.init()
 
-while running:
+
+# --- Train Logic ---
+for ep in range(TRAIN_EPISODES):
     state = env.reset()
     done = False
 
     while not done:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                running = False
                 done = True
 
         # Epsilon-Greedy Choice
@@ -154,6 +189,39 @@ while running:
         # Q-Learning Equation
         target = reward + GAMMA * np.max(get_q(next_state))
         get_q(state)[action] += ALPHA * (target - get_q(state)[action])
+        state = next_state
+
+        pygame.time.Clock().tick(TRAIN_FPS)
+
+    print(f"Train Episode-{ep} Score: {env.score}, Epsilon: {current_epsilon}")
+
+    # Decay Epsilon after each episode
+    current_epsilon = max(MIN_EPSILON, current_epsilon * EPSILON_DECAY)
+
+
+# --- Test Logic ---
+screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+pygame.display.set_caption("Snow Pacman - Q-Learning")
+font = pygame.font.SysFont("Arial Black", 26)
+
+current_epsilon = 0.03
+
+for ep in range(TEST_EPISODES):
+    state = env.reset()
+    done = False
+
+    while not done:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                done = True
+
+        # Epsilon-Greedy Choice
+        if random.random() < current_epsilon:
+            action = random.randint(0, 3)
+        else:
+            action = np.argmax(get_q(state))
+
+        next_state, reward, done = env.step(action)
         state = next_state
 
         # Rendering
@@ -202,12 +270,10 @@ while running:
         screen.blit(eps_txt, (SCREEN_WIDTH - 110, SCREEN_HEIGHT - 40))
 
         pygame.display.flip()
-        pygame.time.Clock().tick(FPS)
+        pygame.time.Clock().tick(TEST_FPS)
 
-    # Decay Epsilon after each episode
-    current_epsilon = max(MIN_EPSILON, current_epsilon * EPSILON_DECAY)
-    episode += 1
+    print(f"Test Episode-{ep}: Score: {env.score}")
 
-    print(f"Total Score: {env.score}")
+    pygame.time.delay(2500)
 
 pygame.quit()
