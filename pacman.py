@@ -17,7 +17,7 @@ GHOST_EPSILON = 0.3  # Maximum randomness to take from random movement for ghost
 # 2. GLOBAL GAME PARAMETERS
 # ==========================================
 TILE_SIZE = 24
-TRAIN_FPS = 1500  # Increase this to 100+ to watch the agent learn at high speed
+TRAIN_FPS = 10000  # Increase this to 100+ to watch the agent learn at high speed
 TEST_FPS = 7  # Increase this to 100+ to watch the agent learn at high speed
 REWARD_DOT = 10
 REWARD_POWER = 50
@@ -26,7 +26,7 @@ REWARD_WIN = 1000
 REWARD_STEP = -1  # Penalty for each move (encourages speed)
 
 TRAIN_EPISODES = 100000
-TEST_EPISODES = 10
+TEST_EPISODES = 1000
 
 # Colors
 BLACK, WALL_BLUE, YELLOW, RED, WHITE = (
@@ -189,15 +189,16 @@ class GameEnv:
 
     def get_state(self):
         # We track pac_man, ghost's position and remaining dots and powers
-        remaining_dots = sum(row.count(0) for row in self.maze)
-        remaining_powers = sum(row.count(2) for row in self.maze)
+        # remaining_dots = sum(row.count(0) for row in self.maze)
+        # remaining_powers = sum(row.count(2) for row in self.maze)
+        flatten_grid = [column for row in self.maze for column in row]
+        flatten_grid_str = "".join(map(str, flatten_grid))
         return (
             self.pacman[0],
             self.pacman[1],
             self.ghost[0],
             self.ghost[1],
-            remaining_dots,
-            remaining_powers,
+            flatten_grid_str,
         )
 
     def is_walkable(self, x, y):
@@ -375,6 +376,9 @@ for ep in range(TEST_EPISODES):
 
     print(f"Test Episode-{ep}: Score: {env.score}")
 
-    pygame.time.delay(2500)
+    pygame.time.delay(3000)
 
-pygame.quit()
+while True:
+    pass
+
+# pygame.quit()
