@@ -20,8 +20,8 @@ TILE_SIZE = 24
 TRAIN_FPS = 10000  # Increase this to 100+ to watch the agent learn at high speed
 TEST_FPS = 7  # Increase this to 100+ to watch the agent learn at high speed
 REWARD_DOT = 10
-REWARD_POWER = 50
-REWARD_DIE = -500
+REWARD_POWER = 100
+REWARD_DIE = -1000
 REWARD_WIN = 1000
 REWARD_STEP = -1  # Penalty for each move (encourages speed)
 
